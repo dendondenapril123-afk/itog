@@ -1,0 +1,230 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Прогнозы на футбол</title>
+    <script src="https://telegram.org/js/telegram-web-app.js"></script>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: #0d1117;
+            color: #e6edf3;
+            margin: 0;
+            padding: 16px;
+            line-height: 1.4;
+        }
+        h1 {
+            color: #58a6ff;
+            text-align: center;
+            margin: 12px 0 20px;
+            font-size: 24px;
+        }
+        .loading, .error {
+            text-align: center;
+            color: #8b949e;
+            margin: 30px 0;
+        }
+        .error {
+            color: #ff6b6b;
+        }
+        .match {
+            background: #161b22;
+            border-radius: 12px;
+            padding: 16px;
+            margin: 12px 0;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.4);
+        }
+        .teams {
+            font-weight: bold;
+            font-size: 18px;
+            margin-bottom: 6px;
+        }
+        .time {
+            color: #8b949e;
+            font-size: 14px;
+            margin-bottom: 10px;
+        }
+        .odds {
+            margin: 8px 0;
+            font-size: 15px;
+        }
+        button {
+            background: #238636;
+            color: white;
+            border: none;
+            padding: 12px 20px;
+            border-radius: 10px;
+            font-size: 16px;
+            font-weight: bold;
+            cursor: pointer;
+            width: 100%;
+            margin-top: 10px;
+        }
+        button:active {
+            background: #2ea043;
+        }
+        #result {
+            margin-top: 24px;
+            padding: 16px;
+            background: #21262d;
+            border-radius: 12px;
+            min-height: 120px;
+        }
+        small {
+            color: #8b949e;
+            font-size: 12px;
+        }
+    </style>
+</head>
+<body>
+    <h1>Прогнозы на футбол ⚽</h1>
+    
+    <div id="matches" class="loading">Загружаем актуальные матчи...</div>
+    <div id="result"></div>
+
+    <script>
+        Telegram.WebApp.ready();
+        Telegram.WebApp.expand();
+        Telegram.WebApp.MainButton.setText("Закрыть").show().onClick(() => Telegram.WebApp.close());
+
+        const API_KEY = '632d6832fba9cc24feb29f4629ff2896';
+        const SPORT = 'soccer_epl';         // АПЛ, можно поменять на soccer_uefa_champions_league и т.д.
+        const REGIONS = 'eu';               // eu, uk, us
+
+      async function loadMatches() {
+    const url = `https://api.the-odds-api.com/v4/sports/${SPORT}/odds/?apiKey=${API_KEY}&regions=${REGIONS}&markets=h2h, total_goals, bts, first_to_score&oddsFormat=decimal`;
+    try {
+        const response = await fetch(url);
+        if (!response.ok) {
+            throw new Error(`HTTP error! Status: ${response.status}`);
+        }
+        const matches = await response.json();
+
+        document.getElementById('matches').innerHTML = ''; // Очистить перед загрузкой
+        if (matches.length === 0) {
+            document.getElementById('matches').innerHTML = 'Нет текущих матчей.';
+            return;
+        }
+
+        matches.forEach(match => {
+            const div = document.createElement('div');
+            div.className = 'match';
+
+            // Получение команд, времени
+            const home = match.home_team;
+            const away = match.away_team;
+            const startTime = new Date(match.commence_time);
+            const timeStr = startTime.toLocaleString();
+
+            // Ищем рынки в данных match
+            // Обратите внимание, что структура markets зависит от API
+            // Обычно markets — массив объектов
+            const markets = match.bookmakers ? match.bookmakers.map(b => b.markets).flat() : [];
+
+            // функция поиска рынка по ключу
+            function findMarketByKey(key) {
+                return markets.find(m => m.key === key);
+            }
+
+            // 1) Основной рынок "handicap" или "h2h" уже был
+            // 2) Примеры новых рынков:
+            const totalGoalsMarket = findMarketByKey('total_goals'); // рыночый ключ
+            const btsMarket = findMarketByKey('both_teams_to_score');
+            const firstScoreMarket = findMarketByKey('first_to_score');
+
+            // Обработка прогнозов
+            let predictionText = '';
+
+            // Прогноз на победу
+            // ... ваш код для вероятностей
+
+            // Образец извлечения данных для total_goals
+            if (totalGoalsMarket && totalGoalsMarket.outcomes.length > 0) {
+                const outcome = totalGoalsMarket.outcomes[0]; // например, самый вероятный
+                const totalGoals = outcome.name; // "2.5" или "Больше 2.5"
+                const probability = outcome.price; // шанс
+                // Вы можете использовать в прогнозе или выводе
+            }
+
+            // Обработка "Об обе забьют"
+            if (btsMarket && btsMarket.outcomes.length >= 2) {
+                const yesOutcome = btsMarket.outcomes.find(o => o.name === 'Yes');
+                const noOutcome = btsMarket.outcomes.find(o => o.name === 'No');
+                // Используйте по необходимости
+            }
+
+            // Первый забивший
+            if (firstScoreMarket && firstScoreMarket.outcomes.length > 0) {
+                const firstBet = firstScoreMarket.outcomes.reduce((prev, curr) => {
+                    return (curr.price > prev.price) ? curr : prev;
+                }, firstScoreMarket.outcomes[0]);
+                // firstBet.name - команда, firstBet.price - вероятность
+            }
+
+            // Здесь вставляем-js code для отображения
+            div.innerHTML = `
+                <div class="teams">${home} — ${away}</div>
+                <div class="time">${timeStr}</div>
+                <div class="odds">
+                    <!-- Показывайте нужные коэффициенты или прогнозы -->
+                </div>
+                <button class="predict-btn">Показать прогноз</button>
+            `;
+
+            // Обработка клика по кнопке
+            div.querySelector('.predict-btn').onclick = () => {
+                // Вызываем функцию showPrediction с нужными параметрами
+                showPrediction({
+                    home,
+                    away,
+                    // В качестве примера, подставьте нужные коэффициенты
+                    totalGoalsOutcome: totalGoalsMarket ? totalGoalsMarket.outcomes[0] : null,
+                    btsOutcome: btsMarket ? btsMarket.outcomes : null,
+                    firstScoreOutcome: firstScoreMarket ? firstScoreMarket.outcomes : null
+                });
+            };
+
+            document.getElementById('matches').appendChild(div);
+        });
+    } catch (error) {
+        document.getElementById('matches').innerHTML = `<p class="error">Не удалось загрузить матчи<br>${error.message}</p>`;
+    }
+}
+
+function showPrediction(data) {
+    const { home, away, totalGoalsOutcome, btsOutcome, firstScoreOutcome } = data;
+
+    // Пример использования данных
+    // Для "Об обе забьют"
+    let btsProb = '';
+    if (btsOutcome && btsOutcome.length >= 2) {
+        const yes = btsOutcome.find(o => o.name === 'Yes');
+        const no = btsOutcome.find(o => o.name === 'No');
+        btsProb = `Вероятность обе забьют: "Да" ${yes ? (1/yes.price*100).toFixed(1)+'%' : '?'}; "Нет" ${no ? (1/no.price*100).toFixed(1)+'%' : '?'}`;
+    }
+
+    // Для первого гола
+    let firstScorer = '';
+    if (firstScoreOutcome && firstScoreOutcome.length > 0) {
+        const topOutcome = firstScoreOutcome.reduce((prev, curr) => (curr.price > prev.price) ? curr : prev, firstScoreOutcome[0]);
+        firstScorer = `Первый забьет: ${topOutcome.name} (${(1/topOutcome.price*100).toFixed(1)}%)`;
+    }
+
+    // Для total_goals
+    let totalGoalsText = '';
+    if (totalGoalsOutcome && totalGoalsOutcome.length > 0) {
+        const topOutcome = totalGoalsOutcome[0];
+        totalGoalsText = `Общая голы: ${topOutcome.name} (Шанс: ${(1/topOutcome.price*100).toFixed(1)}%)`;
+    }
+
+    const resultHTML = `
+        <h2>${home} — ${away}</h2>
+        <p>${btsProb}</p>
+        <p>${firstScorer}</p>
+        <p>${totalGoalsText}</p>
+        <small>Вероятности рассчитаны по коэффициентам (примерная корректировка маржи ~8%). Футбол непредсказуем!</small>
+    `;
+    document.getElementById('result').innerHTML = resultHTML;
+    document.getElementById('result').scrollIntoView({ behavior: 'smooth' });
+}
